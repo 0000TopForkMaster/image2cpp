@@ -367,6 +367,7 @@
 								<option value="plain">plain bytes</option>
 								<option value="arduino">Arduino code</option>
 								<option value="arduino_single">Arduino code, single bitmap</option>
+                                <option value="arduino_2D_array">Arduino 2D array</option>
 								<option value="adafruit_gfx">Adafruit GFXbitmapFont</option>
 							</select>
 							<div id="format-caption-container">
@@ -378,6 +379,9 @@
 								<div data-caption="arduino_single">
 									Adds some extra Arduino code around the output for easy copy-paste.
 									If multiple images are loaded, generates a single byte array.
+								</div>
+                                <div data-caption="arduino_2D_array">
+									Adds some extra Arduino code around the output for easy copy-paste.
 								</div>
 								<div data-caption="adafruit_gfx">
 									Creates a <code>GFXbitmapFont</code> formatted ouput. Used by a modified version of the Adafruit GFX library.
@@ -421,7 +425,8 @@
 								<option value="vertical1bit">Vertical - 1 bit per pixel</option>
 								<option value="horizontal565">Horizontal - 2 bytes per pixel (565)</option>
 								<option value="horizontalAlpha">Horizontal - 1 bit per pixel alpha map</option>
-								<option value="horizontal888">Horizontal - 3 bytes per pixel (rgb888</option>
+								<option value="horizontal888">Horizontal - 3 bytes per pixel (rgb888)</option>
+                                <option value="gray4Level">4 Level Gray - 1 byte per pixel</option>
 							</select>
 						</div>
 					</div>
@@ -587,7 +592,7 @@
 				return output_string;
 			},
 			// Output the alpha mask as a string for horizontally drawing displays
-			horizontalAlpha: function (data, canvasWidth, canvasHeight){
+            horizontalAlpha: function (data, canvasWidth, canvasHeight){
 				var output_string = "";
 				var output_index = 0;
 
@@ -623,6 +628,30 @@
 						number = 0;
 						byteIndex = 7;
 					}
+				}
+				return output_string;
+			},
+            gray4Level: function (data, canvasWidth, canvasHeight){
+				var output_string = "{";
+
+				// format is RGBA, so move 4 steps per pixel
+				for(var index = 0; index < data.length; index += 4){
+					// Get the RGB values
+					var r = data[index]; //we only need one for grey
+                    var gray = Math.round(r/85);
+                    
+                    if (index !=0 && index != (data.length - 4) && Math.floor(index/4)%canvasWidth == (canvasWidth - 1))
+                    {
+                        output_string += gray + "},\n{"; 
+                    }
+                    else if (index != (data.length - 4))
+                    {
+                        output_string += gray + ", ";
+                    }   
+                    else
+                    {
+                        output_string += gray + "}"; 
+                    }
 				}
 				return output_string;
 			}
@@ -1145,6 +1174,27 @@
 						+ getIdentifier()
 						+ " [] PROGMEM = {"
 						+ "\n" + output_string + "\n};";
+					break;
+				}
+                    
+                case "arduino_2D_array": {
+					var comment = "";
+                    var lastWidth = 0;
+                    var lastHeight
+					images.each(function(image) {
+						code = imageToString(image);
+						code = "\t" + code.split("\n").join("\n\t") + "\n";
+						comment = "\t// '" + image.glyph + ", " + image.canvas.width+"x"+image.canvas.height+"px\n";
+						output_string += comment + code;
+                        lastWidth = image.canvas.width;
+                        lastHeight = image.canvas.height;
+					});
+
+					output_string = output_string.replace(/,\s*$/,"");
+
+					output_string = "const int"
+						+ "[" + lastWidth + "][" + lastHeight + "] IMAGE = {"
+						+ "\n" + output_string + "};";
 					break;
 				}
 
